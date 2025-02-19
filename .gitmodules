@@ -1,3 +1,0 @@
-[submodule "nixie_clock_code/components/esp32-wifi-manager"]
-	path = nixie_clock_code/components/esp32-wifi-manager
-	url = https://github.com/tonyp7/esp32-wifi-manager
