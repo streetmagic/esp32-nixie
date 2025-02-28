@@ -1,29 +1,5 @@
 /*
-Copyright (c) 2017-2019 Tony Pottier
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-@file main.c
-@author Tony Pottier
-@brief Entry point for the ESP32 application.
-@see https://idyl.io
-@see https://github.com/tonyp7/esp32-wifi-manager
 */
 
 
@@ -86,8 +62,9 @@ void monitoring_task(void *pvParameter)
   }
 }
 
-static const gpio_num_t clock_cathodes[10]={16,17,3,21,18,5,2,0,4,19};
-static const  gpio_num_t clock_anodes[4]={33,32,25,26};
+
+static const gpio_num_t clock_cathodes[10]={16,17,23,21,18,5,2,27,4,19};
+static const  gpio_num_t clock_anodes[4]={26,25,32,33};
 
 time_t now;
 char strftime_buf[64];
@@ -156,14 +133,14 @@ void nixie_set_display(int h,int m, int tm)
 	int md=m/10;
 	int me=m%10;
 
-	nixie_set_digit(hd,3);
-    vTaskDelay( pdMS_TO_TICKS(tm) );
-	// nixie_set_digit(he,1);
-	// vTaskDelay( pdMS_TO_TICKS(tm) );
-	// nixie_set_digit(md,2);
-	// vTaskDelay( pdMS_TO_TICKS(tm) );
-	// nixie_set_digit(me,3);
-	// vTaskDelay( pdMS_TO_TICKS(tm) );
+	nixie_set_digit(hd,0);
+    vTaskDelay(tm );
+	nixie_set_digit(he,1);
+	vTaskDelay( tm );
+	nixie_set_digit(md,2);
+	vTaskDelay( tm );
+	nixie_set_digit(me,3);
+	vTaskDelay( tm );
 	
 
 }
@@ -175,18 +152,9 @@ uint32_t clock_ms_tick=0;
 
 void clock_show_task(void *pvParameter)
 {
-	
 	for(;;)
 	{
-		
-
-
-		nixie_set_display(timeinfo.tm_hour,timeinfo.tm_min,10);
-
-		//nixie_set_display(cnt/10000,10,10);
-
-
-		
+		nixie_set_display(timeinfo.tm_hour,timeinfo.tm_min,1);	
 		esp_task_wdt_reset();
 		taskYIELD();
 	}
@@ -200,16 +168,11 @@ void clock_tick_task(void *pvParameter)
 {
 	for(;;)
 	{
-		//clock_ms_tick++;
 
 		vTaskDelay( pdMS_TO_TICKS(1000) );
 
-		//if((clock_ms_tick%100)==0)
-		//{
-			
-		//esp_log_write(ESP_LOG_INFO,TAG, "seconds cnt =%d \n ", clock_ms_tick/100);
-
-
+		//timeinfo.tm_hour++;
+		//timeinfo.tm_min++;
 
 		time(&now);
 		localtime_r(&now, &timeinfo);
@@ -218,8 +181,6 @@ void clock_tick_task(void *pvParameter)
 		//strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
 		//ESP_LOGI(TAG, "The current date/time : %s", strftime_buf);
 			
-		//}
-
 		esp_task_wdt_reset();
 
 		taskYIELD();
@@ -253,6 +214,9 @@ void app_main()
 	sntp_setoperatingmode(SNTP_OPMODE_POLL);
 	sntp_setservername(0, "pool.ntp.org");
 	sntp_init();
+
+	//timeinfo.tm_hour=0;
+	//timeinfo.tm_min=1;
 
 	setenv("TZ", "MSK-3", 1);
 	tzset();
