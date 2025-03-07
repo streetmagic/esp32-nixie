@@ -66,9 +66,18 @@ void monitoring_task(void *pvParameter)
 static const gpio_num_t clock_cathodes[10]={16,17,23,21,18,5,2,27,4,19};
 static const  gpio_num_t clock_anodes[4]={26,25,32,33};
 
-time_t now;
+time_t now={0};
 char strftime_buf[64];
-struct tm timeinfo;
+struct tm timeinfo={0};
+
+int display_hours=0;
+int display_minutes=0;
+
+#define TEST_MODE 0
+
+#define DYNAMIC_MODE 1
+#define DYNAMIC_MODE_PERIOD 10000
+#define DYNAMIC_MODE_QUANT 100
 
 #define CATHODE_ON 1
 #define CATHODE_OFF 0
@@ -78,8 +87,15 @@ struct tm timeinfo;
 #define CATHODES_CNT 10
 #define ANDODES_CNT 4
 
+#define DOT_PIN 22
+
 void nixie_init(void)
 {
+
+
+	gpio_set_direction( DOT_PIN, GPIO_MODE_OUTPUT);
+	gpio_set_level( DOT_PIN, ANODE_OFF); 
+	gpio_pullup_dis(DOT_PIN);
 
 	for(int i=0; i<CATHODES_CNT; i++)
 	{
@@ -126,7 +142,9 @@ void nixie_set_digit(int digit, int position)
 	}
 }
 
-void nixie_set_display(int h,int m, int tm)
+
+
+void nixie_set_display(int h,int m, int t_on, int t_off)
 {
 	int hd=h/10;
 	int he=h%10;
@@ -134,27 +152,25 @@ void nixie_set_display(int h,int m, int tm)
 	int me=m%10;
 
 	nixie_set_digit(hd,0);
-    vTaskDelay(tm );
+    vTaskDelay(t_on );
 	nixie_set_digit(he,1);
-	vTaskDelay( tm );
+	vTaskDelay( t_on );
 	nixie_set_digit(md,2);
-	vTaskDelay( tm );
+	vTaskDelay( t_on );
 	nixie_set_digit(me,3);
-	vTaskDelay( tm );
-	
-
+	vTaskDelay( t_on );
 }
 
 
 
-uint32_t clock_ms_tick=0;
 
 
-void clock_show_task(void *pvParameter)
+
+void clock_display_io_task(void *pvParameter)
 {
 	for(;;)
 	{
-		nixie_set_display(timeinfo.tm_hour,timeinfo.tm_min,1);	
+		nixie_set_display(display_hours,display_minutes,2,0);	
 		esp_task_wdt_reset();
 		taskYIELD();
 	}
@@ -164,23 +180,105 @@ void clock_show_task(void *pvParameter)
 
 
 
-void clock_tick_task(void *pvParameter)
+void clock_time_get_task(void *pvParameter)
 {
+
+	static uint8_t dot_pin_state=0;
+	static uint8_t divider=0;
+
 	for(;;)
 	{
 
-		vTaskDelay( pdMS_TO_TICKS(1000) );
+		vTaskDelay( pdMS_TO_TICKS(500) );
 
 		//timeinfo.tm_hour++;
 		//timeinfo.tm_min++;
 
-		time(&now);
-		localtime_r(&now, &timeinfo);
-		ESP_LOGI(TAG, " The current time : %d %d %d \n", timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+		divider++;
+
+		if(divider==2)
+		{
+			
+			divider=0;
+
+
+			#if TEST_MODE
+
+			static int hours=0;
+			static int minutes=99;
+
+			if(hours<99) hours++; else hours=0;
+			if(minutes>0) minutes--; else minutes=99;
+
+			timeinfo.tm_hour=hours;
+			timeinfo.tm_min=minutes;
+			
+			#else
+
+			time(&now);
+			localtime_r(&now, &timeinfo);
+
+			#endif
+			
+			ESP_LOGI(TAG, " The current time : %d %d %d \n", timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+		}
+
+
+
+		if(dot_pin_state)
+		{
+			dot_pin_state=0;
+		}
+		else
+		{
+			dot_pin_state=1;
+		}
+
+		gpio_set_level(DOT_PIN, dot_pin_state);
+		
 
 		//strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
 		//ESP_LOGI(TAG, "The current date/time : %s", strftime_buf);
 			
+		esp_task_wdt_reset();
+
+		taskYIELD();
+	}
+
+}
+
+
+void clock_render_task(void *pvParameter)
+{
+
+	for(;;)
+	{
+		
+
+		vTaskDelay( pdMS_TO_TICKS(DYNAMIC_MODE_PERIOD) );
+
+		#if DYNAMIC_MODE
+
+		display_hours=0;
+		display_minutes=0;
+
+		while ((display_hours<timeinfo.tm_hour)||(display_minutes<timeinfo.tm_min))
+		{
+			if(display_hours<timeinfo.tm_hour) display_hours++;
+			if(display_minutes<timeinfo.tm_min) display_minutes++;
+			vTaskDelay( pdMS_TO_TICKS(DYNAMIC_MODE_QUANT) );
+
+		}
+
+		#else
+
+		display_hours=timeinfo.tm_hour;
+		display_minutes=timeinfo.tm_min;
+
+		#endif
+
+
+
 		esp_task_wdt_reset();
 
 		taskYIELD();
@@ -195,8 +293,7 @@ void app_main()
 
 	nixie_init();
 	//xTaskCreatePinnedToCore(&clock_tick_task, "clock_test_task", 2048, NULL, 10, NULL, 1);
-	 xTaskCreatePinnedToCore(&clock_show_task, "clock_show_task", 16384, NULL, 10, NULL, 1);
-	 xTaskCreatePinnedToCore(&clock_tick_task, "clock_tick_task", 16384, NULL, 10, NULL, 1);
+
 
 	/* GPIO/RMT init for the WS2812 driver */
 	//ESP_ERROR_CHECK(ws2812_init());
@@ -220,6 +317,11 @@ void app_main()
 
 	setenv("TZ", "MSK-3", 1);
 	tzset();
+
+
+	xTaskCreatePinnedToCore(&clock_display_io_task, "clock_display_io_task", 16384, NULL, 11, NULL, 1);
+	xTaskCreatePinnedToCore(&clock_time_get_task, "clock_time_get_task", 16384, NULL, 10, NULL, 1);
+	xTaskCreatePinnedToCore(&clock_render_task, "clock_render_task", 16384, NULL, 10, NULL, 1);
 
 
 

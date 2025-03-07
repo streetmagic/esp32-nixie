@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"esp_log.h": "c",
+			"esp_sntp.h": "c",
+			"condition_variable": "cpp",
+			"ctime": "cpp",
+			"mutex": "cpp",
+			"i2c.h": "c"
+		}
+	}
+}
