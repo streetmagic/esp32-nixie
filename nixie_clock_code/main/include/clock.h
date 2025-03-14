@@ -144,7 +144,7 @@ typedef struct sleep_event_t{
 typedef struct clock_config_t{
 	timezone_t timezone;
 	sleepmodes_t sleepmodes;
-	display_config_t display;
+	//display_config_t display;
 }clock_config_t;
 
 
@@ -191,7 +191,7 @@ timezone_t clock_get_config_timezone();
  * the entire configuration on the stack would be wasteful.
  * @see clock_get_config
  */
-display_config_t clock_get_config_display();
+//display_config_t clock_get_config_display();
 
 
 

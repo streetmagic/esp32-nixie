@@ -11,7 +11,13 @@
 			"condition_variable": "cpp",
 			"ctime": "cpp",
 			"mutex": "cpp",
-			"i2c.h": "c"
+			"i2c.h": "c",
+			"spi_master.h": "c",
+			"string.h": "c",
+			"display.h": "c",
+			"gpio.h": "c",
+			"byteswap.h": "c",
+			"webapp.h": "c"
 		}
 	}
 }
